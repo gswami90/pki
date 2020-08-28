@@ -320,5 +320,4 @@ Installation_sanity_topo_02_clone_fips_ps:
 #  stage: tier1
 #  script:
 #    - ansible-playbook -u fedora --become -i $HOSTFILE $PYTEST_DIR/installation/main.yml -e 'ansible_python_interpreter="/usr/bin/python3"' --extra-vars "topology=acme" -vv
-#
-#
+
