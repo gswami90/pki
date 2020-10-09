@@ -33,12 +33,12 @@
 import os
 import sys
 import pytest
-import logging
+
 import re
 import tempfile
 
 
-from  pki.testlib.common.utils import ProfileOperations
+from  pki.testlib.common.utils import ProfileOperations,log
 
 
 try:
@@ -48,18 +48,15 @@ except Exception as e:
         sys.path.append('/tmp/test_dir/')
         import constants
 
-log = logging.getLogger()
-logging.basicConfig(stream=sys.stdout, level=logging.INFO)
-profile =  'caCACert'
-ca_instance = '{}'.format(constants.CA_INSTANCE_NAME)
+profile = 'caCACert'
 profop = ProfileOperations(nssdb=constants.NSSDB)
-CA_SKID = ''
 
 
-def test_bug_1787115(ansible_module):
+
+def test_profile_update_SKI_parameters(ansible_module):
     """
-		:id:
-		:Title: Bug 1787115 -
+		:id: 8f761dd1-219e-404a-a1ea-333cf2a606b9
+		:Title: Bug 1787115 - SubjectAltNameExtInput does not display text fields to the enrollment page
 		:Description: Bug 1787115 - SubjectAltNameExtInput does not display text fields to the enrollment page
 		:Requirement:
 		:CaseComponent: \-
@@ -67,21 +64,17 @@ def test_bug_1787115(ansible_module):
 			1. Use the subsystems setup in ansible to run subsystem commands
 
 		:Steps:
-			1.
-			2.
-			3.
-			4. Submit the certificate request and approve
-			5. Check the certificate with relevant Subject Alternative Name info
+			1. Disable profile caCACert.
+			2. Edit caCACert profile to add parameter 'policyset.caCertSet.8.default.params.useSKIFromCertRequest=true'
+			3. Enable profile.
+			
 		:ExpectedResults:
-			1.
-			2.
-			3.
-			4.
-			5.
+			1. profile should be disabled.
+			2. caCACert profile must include parameter 'policyset.caCertSet.8.default.params.useSKIFromCertRequest=true'
+			3. profile should be enabled.
+			
 	"""
     tmp_file = tempfile.mktemp(suffix='tmp_', prefix='_profile')
-    newProfile = None
-    file_name = '/tmp/caServerCert.txt'
     add_param = { 'policyset.caCertSet.8.default.params.useSKIFromCertRequest' : 'true' }
     profile_show = ansible_module.pki(cli='ca-profile-show',
                                       nssdb=constants.NSSDB,
@@ -140,7 +133,30 @@ def test_bug_1787115(ansible_module):
             pytest.fail("Failed to run caServerCert profile.")
 
             
-def test_SKI_Validation(ansible_module):
+def test_SKI_Validation_CSR_Signed_Certificate(ansible_module):
+    """
+    		:id: c57e8960-9545-4b1c-9728-be570766037c
+    		:Title: Bug 1787115 - SubjectAltNameExtInput does not display text fields to the enrollment page
+    		:Description: Bug 1787115 - SubjectAltNameExtInput does not display text fields to the enrollment page
+    		:Requirement:
+    		:CaseComponent: \-
+    		:Setup:
+    			1. Use the subsystems setup in ansible to run subsystem commands.
+    			
+    		:Steps:
+    			1. Genrate CSR with external SKID extension
+    			2. Submit the certificate request with CSR file.
+    			3. Approve the certificate request
+    			4. Export signed certificate.
+    			5. Check the certificate Subject Key Identifier matches with  Subject Key Identifier from CSR.
+    			
+    		:ExpectedResults:
+    			1. CSR should be generate with SKI extension.
+    			2. CSR should be submitted succeesfully.
+    			3. Request should be approved succeesfully.
+    			4. Signed Certificate should be exported succeesfully.
+    			5. CSR and Signed Certificate SKI extension should identical.
+    """
     request_id = None
     submitted_req = False
     SKI_CSR = '/opt/pki/certdb/SKI.csr'
@@ -236,6 +252,9 @@ def test_SKI_Validation(ansible_module):
         log.info("Running : {}".format(res['cmd']))
         if res['rc'] == 0:
             assert "OCTET STRING CB A7 AA 1E 3D 27 84 15 3D 47" in res['stdout']
-            log.info("Succesfully Copied SKI from CSR to Signed Certificate.")
+            log.info("SKI extension is Identical in CSR and Signed Certificate.")
         else:
             log.error("Failed verify the SKI match between CSR and Signed Certificate.")
+            
+    
+    ansible_module.command('rm -rf {} {}'.format(SKI_CRT,SKI_CSR))
